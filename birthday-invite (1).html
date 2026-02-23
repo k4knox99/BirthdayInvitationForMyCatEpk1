@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Will you be my Birthday Date?</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Arial', sans-serif;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            min-height: 100vh; background-color: #ffffff; text-align: center;
+        }
+        #main-container {
+            display: flex; flex-direction: column;
+            align-items: center; z-index: 1; padding: 20px 20px 80px;
+        }
+        #main-gif { width: 280px; height: 220px; object-fit: cover; border-radius: 12px; margin-bottom: 20px; }
+        h1 { font-size: 2rem; margin: 10px 0; color: #111; }
+        #subtext { font-size: 1.1rem; color: #555; margin-bottom: 30px; }
+        #button-container { display: flex; align-items: center; justify-content: center; gap: 15px; flex-wrap: wrap; min-height: 70px; }
+        button { cursor: pointer; border: none; border-radius: 8px; font-weight: bold; }
+        #yes-btn { background-color: #2ece6b; color: white; font-size: 1.5rem; padding: 15px 30px; border-radius: 50px; z-index: 2; flex-shrink: 0; transition: background-color .2s; }
+        #yes-btn:hover { background-color: #25b85c; }
+        #no-btn { background-color: #ef4444; color: white; font-size: 1.2rem; padding: 15px 30px; border-radius: 50px; white-space: nowrap; flex-shrink: 0; z-index: 2; }
+        #share-btn { background-color: #58a6ff; color: white; font-size: 1.2rem; padding: 10px 20px; border-radius: 20px; display: none; margin-top: 20px; transition: background-color .2s; }
+        #share-btn:hover { background-color: #3b8de0; }
+        footer { position: fixed; bottom: 0; width: 100%; background-color: #f3f4f6; color: #4b5563; padding: 15px 0; font-size: 0.85rem; text-align: center; }
+        footer a { color: #4b5563; text-decoration: underline; }
+
+        /* sync dot */
+        #syncDot { position: fixed; top: 12px; right: 14px; width: 10px; height: 10px; border-radius: 50%; background: #ccc; z-index: 60; transition: background .4s; cursor: default; }
+        #syncDot.live { background: #4caf50; }
+        #syncDot.saving { background: #ff9800; animation: pulse .6s infinite; }
+        #syncDot.error { background: #f44336; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+        /* setup banner */
+        #setupBanner {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 300;
+            background: linear-gradient(135deg,#ff6eb4,#e75480);
+            color: #fff; font-size: 13px; padding: 10px 16px;
+            text-align: center; line-height: 1.6; display: none;
+        }
+        #setupBanner a { color: #fff9c4; font-weight: bold; }
+        #setupBanner.show { display: block; }
+
+        /* secret gear */
+        #secretBtn { position: fixed; bottom: 55px; right: 16px; background: rgba(231,84,128,.13); color: #e75480; border: none; border-radius: 50%; width: 36px; height: 36px; font-size: 18px; cursor: pointer; z-index: 50; transition: background .2s; }
+        #secretBtn:hover { background: rgba(231,84,128,.28); }
+
+        /* password modal */
+        #pwModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200; align-items: center; justify-content: center; }
+        #pwModal.open { display: flex; }
+        #pwBox { background: #fff; border-radius: 16px; padding: 28px 24px; width: 310px; text-align: center; box-shadow: 0 12px 40px rgba(0,0,0,.2); }
+        #pwBox h3 { color: #e75480; margin-bottom: 14px; font-size: 16px; }
+        .pw-input { width: 100%; padding: 9px 11px; border: 1.5px solid #ffb3c6; border-radius: 8px; font-size: 15px; outline: none; margin-bottom: 10px; text-align: center; letter-spacing: 4px; font-family: Arial; }
+        .pw-input:focus { border-color: #e75480; }
+        .pw-btn { width: 100%; padding: 10px; background: linear-gradient(135deg,#ff6eb4,#e75480); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 800; cursor: pointer; margin-bottom: 8px; }
+        #pwError { color: #f44336; font-size: 12px; display: none; margin-top: 4px; }
+        #pwCancel { background: none; border: none; color: #aaa; font-size: 13px; cursor: pointer; }
+
+        /* editor overlay */
+        #editorOverlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.55); z-index: 100; align-items: center; justify-content: center; padding: 16px; }
+        #editorOverlay.open { display: flex; }
+        #editorBox { background: #fff; border-radius: 20px; padding: 24px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; font-size: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+        #editorBox h2 { color: #e75480; margin-bottom: 4px; font-size: 17px; display: flex; align-items: center; justify-content: space-between; }
+        .sync-note { font-size: 11px; color: #4caf50; font-weight: 600; margin-bottom: 14px; }
+        .close-btn { background: #ffeef4; color: #e75480; border: none; border-radius: 8px; padding: 4px 12px; font-size: 13px; cursor: pointer; font-weight: 700; }
+
+        /* API key setup box inside editor */
+        #apiSetup { background: #fff8e1; border: 1.5px solid #ffe082; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 12.5px; color: #7a6000; line-height: 1.7; }
+        #apiSetup b { color: #c07000; }
+        #apiSetup a { color: #e75480; }
+        .api-row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+        .api-row input { flex: 1; padding: 7px 10px; border: 1.5px solid #ffe082; border-radius: 8px; font-size: 12px; outline: none; font-family: Arial; }
+        .api-row input:focus { border-color: #e75480; }
+        .btn-save-key { background: #e75480; color: #fff; border: none; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+
+        #editorBox label { display: block; color: #555; margin: 12px 0 4px; font-weight: 700; font-size: 13px; }
+        .small-lbl { font-weight: 400 !important; color: #bbb !important; font-size: 11px !important; }
+        .ed-input { width: 100%; padding: 9px 11px; border: 1.5px solid #ffb3c6; border-radius: 8px; font-size: 13px; outline: none; font-family: Arial; }
+        .ed-input:focus { border-color: #e75480; }
+        .gif-section { background: #fff5f8; border: 1.5px solid #ffccd8; border-radius: 12px; padding: 14px; margin-bottom: 6px; }
+        .gif-section h3 { color: #e75480; font-size: 13px; margin-bottom: 10px; }
+        .gif-presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+        .gif-preset { cursor: pointer; border: 2px solid #ffb3c6; border-radius: 10px; overflow: hidden; transition: border-color .2s, transform .15s; background: #fff; flex-shrink: 0; }
+        .gif-preset:hover { border-color: #e75480; transform: scale(1.05); }
+        .gif-preset.active { border-color: #e75480; box-shadow: 0 0 0 3px #ffd0de; }
+        .gif-preset img { width: 76px; height: 60px; object-fit: cover; display: block; }
+        .gif-preset span { display: block; text-align: center; font-size: 10px; color: #888; padding: 2px 4px 4px; }
+        .gif-custom { display: flex; gap: 8px; align-items: center; }
+        .gif-custom .ed-input { flex: 1; }
+        .btn-use { background: #e75480; color: #fff; border: none; border-radius: 8px; padding: 9px 12px; font-size: 12px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+        .btn-use:hover { background: #c4365e; }
+        .ed-hr { border: none; border-top: 1.5px dashed #ffe0ec; margin: 14px 0 8px; }
+        .no-messages-list { margin-top: 8px; }
+        .no-msg-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+        .no-msg-row .ed-input { flex: 1; }
+        .btn-remove { background: #ff6b6b; color: #fff; border: none; border-radius: 6px; width: 28px; height: 28px; cursor: pointer; font-size: 16px; flex-shrink: 0; }
+        .btn-add { margin-top: 6px; background: #e75480; color: #fff; border: none; border-radius: 8px; padding: 6px 14px; cursor: pointer; font-size: 13px; font-weight: 700; }
+        .btn-add:hover { background: #c4365e; }
+        #btnApply { display: block; width: 100%; margin-top: 18px; padding: 12px; background: linear-gradient(135deg, #ff6eb4, #e75480); color: #fff; border: none; border-radius: 10px; font-size: 15px; font-weight: 800; cursor: pointer; }
+        #btnApply:hover { opacity: .9; }
+        #btnApply:disabled { opacity: .6; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+<div id="syncDot" title="Sync status"></div>
+
+<!-- setup banner shown if API key not set -->
+<div id="setupBanner">
+    ⚙️ <b>One-time setup needed!</b> Click the ⚙️ gear → enter password → follow the setup steps to enable real-time sync.
+</div>
+
+<div id="main-container">
+    <img id="main-gif" src="https://media.giphy.com/media/gHo1P7oxz7WtapcFNI/giphy.gif" alt="Cute GIF">
+    <h1 id="question">Will you be my Birthday Date? 🎂</h1>
+    <p id="subtext">March 1st wouldn't be the same without you!</p>
+    <div id="button-container">
+        <button id="yes-btn">Count me in!</button>
+        <button id="no-btn">No</button>
+    </div>
+    <button id="share-btn">Share Now ➡</button>
+</div>
+
+<footer>
+    © 2025 @yourfish_kmh. All rights reserved.
+    <a href="#">Privacy Policy</a>. Made with ❤️ by Fish_kmh
+</footer>
+
+<button id="secretBtn" onclick="openPw()" title="Settings">⚙️</button>
+
+<!-- PASSWORD MODAL -->
+<div id="pwModal">
+    <div id="pwBox">
+        <h3>🔐 Creator Access</h3>
+        <input class="pw-input" type="password" id="pwInput" placeholder="••••" maxlength="20"
+            onkeydown="if(event.key==='Enter')checkPw()">
+        <button class="pw-btn" onclick="checkPw()">Unlock Editor</button>
+        <p id="pwError">Wrong password, try again!</p>
+        <button id="pwCancel" onclick="closePw()">Cancel</button>
+    </div>
+</div>
+
+<!-- EDITOR OVERLAY -->
+<div id="editorOverlay">
+    <div id="editorBox">
+        <h2>✏️ Customize Invite <button class="close-btn" onclick="closeEditor()">✕ Close</button></h2>
+        <p class="sync-note" id="syncStatus">⏳ Checking sync…</p>
+
+        <!-- API KEY SETUP -->
+        <div id="apiSetup">
+            <b>🔧 One-time Free Setup for Real-time Sync:</b><br>
+            1. Go to <a href="https://jsonbin.io" target="_blank">jsonbin.io</a> → Sign up free<br>
+            2. Click <b>"API Keys"</b> in the top menu → copy your <b>Master Key</b><br>
+            3. Paste it below and click Save — done! ✅
+            <div class="api-row">
+                <input type="text" id="apiKeyInput" placeholder="Paste your JSONBin Master Key here…">
+                <button class="btn-save-key" onclick="saveApiKey()">Save Key</button>
+            </div>
+        </div>
+
+        <div class="gif-section">
+            <h3>🐧 Main GIF</h3>
+            <div class="gif-presets" id="mainPresets">
+                <div class="gif-preset active" onclick="pickMain(this,'https://media.giphy.com/media/gHo1P7oxz7WtapcFNI/giphy.gif')">
+                    <img src="https://media.giphy.com/media/gHo1P7oxz7WtapcFNI/giphy.gif" alt=""><span>Sad Please</span>
+                </div>
+                <div class="gif-preset" onclick="pickMain(this,'https://media.giphy.com/media/afEXgnASzEbtcIZM1C/giphy.gif')">
+                    <img src="https://media.giphy.com/media/afEXgnASzEbtcIZM1C/giphy.gif" alt=""><span>Sad Cry</span>
+                </div>
+                <div class="gif-preset" onclick="pickMain(this,'https://media.giphy.com/media/IqiumInk6n9vaONHp9/giphy.gif')">
+                    <img src="https://media.giphy.com/media/IqiumInk6n9vaONHp9/giphy.gif" alt=""><span>Pout</span>
+                </div>
+                <div class="gif-preset" onclick="pickMain(this,'https://media.giphy.com/media/qOrqUuBXjxrwcCvH7S/giphy.gif')">
+                    <img src="https://media.giphy.com/media/qOrqUuBXjxrwcCvH7S/giphy.gif" alt=""><span>Shy 🥺</span>
+                </div>
+                <div class="gif-preset" onclick="pickMain(this,'https://media.giphy.com/media/E0Z9JNoQ7CBaScFw75/giphy.gif')">
+                    <img src="https://media.giphy.com/media/E0Z9JNoQ7CBaScFw75/giphy.gif" alt=""><span>Love ❤️</span>
+                </div>
+            </div>
+            <div class="gif-custom">
+                <input class="ed-input" type="url" id="gifUrl" placeholder="Or paste any direct .gif URL…">
+                <button class="btn-use" onclick="useCustomMain()">Use ➜</button>
+            </div>
+        </div>
+
+        <div class="ed-hr"></div>
+        <label>Main Title</label>
+        <input class="ed-input" type="text" id="titleText" value="Will you be my Birthday Date? 🎂">
+        <label>Subtitle</label>
+        <input class="ed-input" type="text" id="subtitleText" value="March 1st wouldn't be the same without you!">
+        <label>"Yes" Button Label</label>
+        <input class="ed-input" type="text" id="yesLabel" value="Count me in!">
+        <label>Success Message</label>
+        <input class="ed-input" type="text" id="successMsg" value="YAY! Best birthday present ever!! See you then! ✨">
+
+        <div class="ed-hr"></div>
+        <label>"No" Button Messages <span class="small-lbl">(cycles one by one, button runs away!)</span></label>
+        <div class="no-messages-list" id="noList"></div>
+        <button class="btn-add" onclick="addNoMsg()">+ Add Message</button>
+
+        <div class="ed-hr"></div>
+        <div class="gif-section">
+            <h3>🎉 Success GIF (after she says Yes)</h3>
+            <div class="gif-presets" id="successPresets">
+                <div class="gif-preset active" onclick="pickSuccess(this,'https://media.giphy.com/media/nmYuapfnOxptMyieTF/giphy.gif')">
+                    <img src="https://media.giphy.com/media/nmYuapfnOxptMyieTF/giphy.gif" alt=""><span>Flying Kiss</span>
+                </div>
+                <div class="gif-preset" onclick="pickSuccess(this,'https://media.giphy.com/media/PvZ3r8GXtTSjPc0zAd/giphy.gif')">
+                    <img src="https://media.giphy.com/media/PvZ3r8GXtTSjPc0zAd/giphy.gif" alt=""><span>Love Kiss</span>
+                </div>
+                <div class="gif-preset" onclick="pickSuccess(this,'https://media.giphy.com/media/vPyNy6uNHJZaLcfbQW/giphy.gif')">
+                    <img src="https://media.giphy.com/media/vPyNy6uNHJZaLcfbQW/giphy.gif" alt=""><span>I Love You</span>
+                </div>
+                <div class="gif-preset" onclick="pickSuccess(this,'https://media.giphy.com/media/QeQbG77MfXlfWTUC49/giphy.gif')">
+                    <img src="https://media.giphy.com/media/QeQbG77MfXlfWTUC49/giphy.gif" alt=""><span>Hug Kiss</span>
+                </div>
+                <div class="gif-preset" onclick="pickSuccess(this,'https://media.giphy.com/media/tJ1sSKaNSsLQPAEval/giphy.gif')">
+                    <img src="https://media.giphy.com/media/tJ1sSKaNSsLQPAEval/giphy.gif" alt=""><span>Love U 💕</span>
+                </div>
+            </div>
+            <div class="gif-custom">
+                <input class="ed-input" type="url" id="successGifUrl" placeholder="Or paste any direct .gif URL…">
+                <button class="btn-use" onclick="useCustomSuccess()">Use ➜</button>
+            </div>
+        </div>
+
+        <button id="btnApply" onclick="applyAll()">💾 Save & Sync to Her Page</button>
+    </div>
+</div>
+
+<script>
+    const SECRET_PASSWORD = 'fish2025';
+    const LS_API_KEY  = 'bdInvite_apiKey';
+    const LS_BIN_ID   = 'bdInvite_binId';
+    const LS_SETTINGS = 'bdInvite_settings'; // local fallback
+
+    let currentMain    = 'https://media.giphy.com/media/gHo1P7oxz7WtapcFNI/giphy.gif';
+    let currentSuccess = 'https://media.giphy.com/media/nmYuapfnOxptMyieTF/giphy.gif';
+    let noMessages = [
+        "Are you sure? It's My Big Day 🥺",
+        "I'm deleting my birthday from the calendar.",
+        "Please? 🥺",
+        "Don't do this to me!",
+        "My Birthday Wish Was Just To See U Ly 💕",
+        "Is it Because I'm Pisces (Fish Ly)?",
+        "Ek lo Pop",
+        "Pls, Cat Kalay",
+        ":((", "Still No?",
+        "Pls Pls Pls Cat Cat 🐱",
+        "Pls Count Me In pr tot 🙏"
+    ];
+
+    let noClickCount = 0, noIsFixed = false;
+    let lastEtag = null;
+
+    const mainGif      = document.getElementById("main-gif");
+    const question     = document.getElementById("question");
+    const subText      = document.getElementById("subtext");
+    const yesBtn       = document.getElementById("yes-btn");
+    const noBtn        = document.getElementById("no-btn");
+    const btnContainer = document.getElementById("button-container");
+    const shareBtn     = document.getElementById("share-btn");
+    const syncDot      = document.getElementById("syncDot");
+    const syncStatus   = document.getElementById("syncStatus");
+
+    // ── HELPERS ──
+    function getApiKey() { return localStorage.getItem(LS_API_KEY) || ''; }
+    function getBinId()  { return localStorage.getItem(LS_BIN_ID)  || ''; }
+
+    function setSyncStatus(msg, color) {
+        syncStatus.textContent = msg;
+        syncStatus.style.color = color || '#4caf50';
+    }
+
+    // ── API KEY SETUP ──
+    function saveApiKey() {
+        const key = document.getElementById('apiKeyInput').value.trim();
+        if (!key) { alert('Please paste your JSONBin Master Key!'); return; }
+        localStorage.setItem(LS_API_KEY, key);
+        document.getElementById('apiSetup').style.display = 'none';
+        document.getElementById('setupBanner').classList.remove('show');
+        setSyncStatus('🔑 API key saved! Create your first bin by clicking Save below.', '#ff9800');
+        checkSetup();
+    }
+
+    function checkSetup() {
+        const key   = getApiKey();
+        const binId = getBinId();
+        const setup = document.getElementById('apiSetup');
+        if (!key) {
+            setup.style.display = 'block';
+            document.getElementById('setupBanner').classList.add('show');
+            setSyncStatus('⚠️ Setup needed — paste your JSONBin API key above', '#f44336');
+        } else {
+            setup.style.display = 'none';
+            document.getElementById('setupBanner').classList.remove('show');
+            if (binId) {
+                setSyncStatus('🟢 Sync ready — her page updates within 5 seconds!', '#4caf50');
+                syncDot.classList.add('live');
+            } else {
+                setSyncStatus('🔑 API key saved! Click "Save & Sync" to create your sync bin.', '#ff9800');
+            }
+        }
+        if (key && document.getElementById('apiKeyInput'))
+            document.getElementById('apiKeyInput').value = key;
+    }
+
+    // ── JSONBIN API ──
+    async function createBin(settings) {
+        const res = await fetch('https://api.jsonbin.io/v3/b', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': getApiKey(),
+                'X-Bin-Name': 'birthday-invite',
+                'X-Private': 'false'
+            },
+            body: JSON.stringify(settings)
+        });
+        if (!res.ok) throw new Error('Create failed: ' + res.status);
+        const data = await res.json();
+        return data.metadata.id;
+    }
+
+    async function updateBin(binId, settings) {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': getApiKey()
+            },
+            body: JSON.stringify(settings)
+        });
+        if (!res.ok) throw new Error('Update failed: ' + res.status);
+    }
+
+    async function readBin(binId) {
+        const res = await fetch(`https://api.jsonbin.io/v3/b/${binId}/latest`, {
+            headers: { 'X-Master-Key': getApiKey() }
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.record;
+    }
+
+    // ── APPLY SETTINGS TO CARD ──
+    function applySettingsToCard(s) {
+        if (!s) return;
+        question.innerText  = s.title    || question.innerText;
+        subText.innerText   = s.subtitle || subText.innerText;
+        yesBtn.innerText    = s.yesLabel || yesBtn.innerText;
+        mainGif.src         = s.mainGif  || mainGif.src;
+        currentMain         = s.mainGif  || currentMain;
+        currentSuccess      = s.successGif || currentSuccess;
+        if (s.noMessages && s.noMessages.length) noMessages = [...s.noMessages];
+    }
+
+    // ── LOAD ON START ──
+    async function loadSettings() {
+        const binId = getBinId();
+        const apiKey = getApiKey();
+        if (!binId || !apiKey) {
+            // Load from localStorage fallback
+            const local = localStorage.getItem(LS_SETTINGS);
+            if (local) applySettingsToCard(JSON.parse(local));
+            return;
+        }
+        try {
+            const s = await readBin(binId);
+            if (s) {
+                applySettingsToCard(s);
+                localStorage.setItem(LS_SETTINGS, JSON.stringify(s));
+                syncDot.classList.add('live');
+            }
+        } catch(e) {
+            // Use local fallback silently
+            const local = localStorage.getItem(LS_SETTINGS);
+            if (local) applySettingsToCard(JSON.parse(local));
+        }
+    }
+
+    // ── POLL FOR CHANGES ──
+    let lastPollData = '';
+    async function pollForChanges() {
+        const binId = getBinId(), apiKey = getApiKey();
+        if (!binId || !apiKey) return;
+        try {
+            const s = await readBin(binId);
+            if (!s) return;
+            const str = JSON.stringify(s);
+            if (str !== lastPollData) {
+                lastPollData = str;
+                applySettingsToCard(s);
+                localStorage.setItem(LS_SETTINGS, str);
+                // Flash green
+                syncDot.style.background = '#00e676';
+                setTimeout(() => syncDot.classList.add('live'), 700);
+            }
+            syncDot.classList.add('live');
+            syncDot.classList.remove('error');
+        } catch(e) {
+            syncDot.classList.remove('live');
+            syncDot.classList.add('error');
+        }
+    }
+
+    // ── SAVE & SYNC ──
+    async function applyAll() {
+        const inputs = document.querySelectorAll('#noList .ed-input');
+        noMessages = Array.from(inputs).map(i => i.value).filter(v => v.trim());
+
+        const settings = {
+            mainGif:    currentMain,
+            successGif: currentSuccess,
+            title:      document.getElementById('titleText').value,
+            subtitle:   document.getElementById('subtitleText').value,
+            yesLabel:   document.getElementById('yesLabel').value,
+            successMsg: document.getElementById('successMsg').value,
+            noMessages: [...noMessages]
+        };
+
+        // Apply immediately to this page
+        applySettingsToCard(settings);
+        localStorage.setItem(LS_SETTINGS, JSON.stringify(settings));
+
+        // Reset No button
+        noClickCount = 0; noIsFixed = false;
+        noBtn.innerText = 'No'; noBtn.style.cssText = '';
+
+        const btn = document.getElementById('btnApply');
+
+        // If no API key → save locally only
+        if (!getApiKey()) {
+            btn.innerText = '✅ Saved Locally!'; btn.style.background = '#ff9800';
+            setSyncStatus('⚠️ Saved locally only. Add API key for real-time sync.', '#ff9800');
+            setTimeout(() => { btn.innerText = '💾 Save & Sync to Her Page'; btn.style.background = ''; }, 2000);
+            closeEditor();
+            return;
+        }
+
+        btn.innerText = '⏳ Saving…'; btn.disabled = true;
+        syncDot.classList.remove('live'); syncDot.classList.add('saving');
+
+        try {
+            let binId = getBinId();
+            if (!binId) {
+                // First time — create the bin
+                binId = await createBin(settings);
+                localStorage.setItem(LS_BIN_ID, binId);
+                lastPollData = JSON.stringify(settings);
+            } else {
+                await updateBin(binId, settings);
+                lastPollData = JSON.stringify(settings);
+            }
+            syncDot.classList.remove('saving'); syncDot.classList.add('live');
+            setSyncStatus('🟢 Sync ready — her page updates within 5 seconds!', '#4caf50');
+            btn.innerText = '✅ Saved & Synced!'; btn.style.background = '#4caf50';
+        } catch(e) {
+            syncDot.classList.remove('saving'); syncDot.classList.add('error');
+            setSyncStatus('❌ Sync failed. Check your API key.', '#f44336');
+            btn.innerText = '❌ Sync Failed'; btn.style.background = '#f44336';
+        }
+
+        btn.disabled = false;
+        setTimeout(() => { btn.innerText = '💾 Save & Sync to Her Page'; btn.style.background = ''; }, 2500);
+        closeEditor();
+    }
+
+    // ── PASSWORD ──
+    function openPw() {
+        document.getElementById('pwModal').classList.add('open');
+        document.getElementById('pwInput').value = '';
+        document.getElementById('pwError').style.display = 'none';
+        setTimeout(() => document.getElementById('pwInput').focus(), 100);
+    }
+    function closePw() { document.getElementById('pwModal').classList.remove('open'); }
+    function checkPw() {
+        if (document.getElementById('pwInput').value === SECRET_PASSWORD) { closePw(); openEditor(); }
+        else { document.getElementById('pwError').style.display = 'block'; document.getElementById('pwInput').value = ''; }
+    }
+
+    // ── EDITOR ──
+    function openEditor() {
+        document.getElementById('titleText').value    = question.innerText;
+        document.getElementById('subtitleText').value = subText.innerText;
+        document.getElementById('yesLabel').value     = yesBtn.innerText;
+        const local = localStorage.getItem(LS_SETTINGS);
+        if (local) {
+            const s = JSON.parse(local);
+            document.getElementById('successMsg').value = s.successMsg || 'YAY! Best birthday present ever!! See you then! ✨';
+        }
+        checkSetup();
+        renderNoList();
+        document.getElementById('editorOverlay').classList.add('open');
+    }
+    function closeEditor() { document.getElementById('editorOverlay').classList.remove('open'); }
+
+    // ── GIF PICKERS ──
+    function pickMain(el, url) {
+        document.querySelectorAll('#mainPresets .gif-preset').forEach(p => p.classList.remove('active'));
+        el.classList.add('active'); currentMain = url; document.getElementById('gifUrl').value = '';
+    }
+    function pickSuccess(el, url) {
+        document.querySelectorAll('#successPresets .gif-preset').forEach(p => p.classList.remove('active'));
+        el.classList.add('active'); currentSuccess = url; document.getElementById('successGifUrl').value = '';
+    }
+    function useCustomMain() {
+        const u = document.getElementById('gifUrl').value.trim();
+        if (!u) { alert('Paste a URL first!'); return; }
+        document.querySelectorAll('#mainPresets .gif-preset').forEach(p => p.classList.remove('active'));
+        currentMain = u;
+    }
+    function useCustomSuccess() {
+        const u = document.getElementById('successGifUrl').value.trim();
+        if (!u) { alert('Paste a URL first!'); return; }
+        document.querySelectorAll('#successPresets .gif-preset').forEach(p => p.classList.remove('active'));
+        currentSuccess = u;
+    }
+
+    // ── NO MESSAGES ──
+    function esc(s) { return s.replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+    function renderNoList() {
+        const list = document.getElementById('noList'); list.innerHTML = '';
+        noMessages.forEach((msg, i) => {
+            const row = document.createElement('div'); row.className = 'no-msg-row';
+            row.innerHTML = `<input class="ed-input" type="text" value="${esc(msg)}" oninput="noMessages[${i}]=this.value" placeholder="Message ${i+1}"><button class="btn-remove" onclick="removeNoMsg(${i})">×</button>`;
+            list.appendChild(row);
+        });
+    }
+    function addNoMsg() { noMessages.push(''); renderNoList(); }
+    function removeNoMsg(i) { noMessages.splice(i,1); renderNoList(); }
+
+    // ── NO BUTTON RUN AWAY ──
+    noBtn.addEventListener("click", function () {
+        noBtn.innerText = noClickCount < noMessages.length ? noMessages[noClickCount] : noMessages[noMessages.length-1];
+        noClickCount++;
+        if (!noIsFixed) {
+            const r = noBtn.getBoundingClientRect();
+            noBtn.style.position='fixed'; noBtn.style.left=r.left+'px'; noBtn.style.top=r.top+'px';
+            noBtn.style.margin='0'; noBtn.style.zIndex='999'; noIsFixed=true;
+        }
+        const sz=Math.max(10,19-noClickCount), pv=Math.max(6,15-noClickCount), ph=Math.max(12,30-noClickCount*2);
+        noBtn.style.fontSize=sz+'px'; noBtn.style.padding=`${pv}px ${ph}px`;
+        const vw=window.innerWidth, vh=window.innerHeight, bw=noBtn.offsetWidth||80, bh=noBtn.offsetHeight||40;
+        noBtn.style.transition='left .4s cubic-bezier(.34,1.56,.64,1),top .4s cubic-bezier(.34,1.56,.64,1),font-size .2s,padding .2s';
+        noBtn.style.left=Math.max(0,Math.random()*(vw-bw))+'px';
+        noBtn.style.top=Math.max(0,Math.random()*(vh-bh-60))+'px';
+    });
+
+    // ── YES BUTTON ──
+    yesBtn.addEventListener("click", function () {
+        const local = localStorage.getItem(LS_SETTINGS);
+        let sucMsg = 'YAY! Best birthday present ever!! See you then! ✨';
+        let sucGif = currentSuccess;
+        if (local) { const s=JSON.parse(local); sucMsg=s.successMsg||sucMsg; sucGif=s.successGif||sucGif; }
+        mainGif.src=sucGif; question.innerText=sucMsg;
+        subText.style.display='none'; btnContainer.style.display='none';
+        noBtn.style.display='none'; shareBtn.style.display='inline-block';
+    });
+
+    // ── SHARE ──
+    shareBtn.addEventListener("click", function () {
+        if (navigator.share) { navigator.share({title:"Birthday Date Invite", url:location.href}); }
+        else { navigator.clipboard.writeText(location.href).then(()=>alert("✅ Link copied!")); }
+    });
+
+    // Close on backdrop
+    document.getElementById('pwModal').addEventListener('click', e=>{ if(e.target===document.getElementById('pwModal'))closePw(); });
+    document.getElementById('editorOverlay').addEventListener('click', e=>{ if(e.target===document.getElementById('editorOverlay'))closeEditor(); });
+
+    // ── INIT ──
+    loadSettings().then(() => {
+        setInterval(pollForChanges, 5000);
+    });
+</script>
+</body>
+</html>
